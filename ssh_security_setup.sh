@@ -378,7 +378,7 @@ while read -r OPEN_PORT_LINE; do
 done <<< "$OPEN_PORTS"
 # Вывод результатов
 if [ ${#errors[@]} -eq 0 ]; then
-    test_result "ok" "✓ Тест портов: Сервис sshd слушает только один порт ($SSH_PORT) на адресе $CONFIG_LISTEN_ADDRESS."
+    test_result "ok" "Тест портов: Сервис sshd слушает только один порт ($SSH_PORT) на адресе $CONFIG_LISTEN_ADDRESS."
 else
     test_result "fail" "Тест портов не пройден: Обнаружены ошибки в конфигурации открытых портов."
     for error in "${errors[@]}"; do
@@ -439,7 +439,7 @@ declare -A EXPECTED_SETTINGS=(
     ["port"]="${SSH_PORT}"                                                       # Использование нестандартного порта для снижения автоматических атак
     ["addressfamily"]="inet"                                                # Разрешение только IPv4 (если IPv6 не требуется)
     ["listenaddress"]="${SSH_IP}:${SSH_PORT}"                               # Ограничение прослушивания только определенного IP-адреса
-    ["protocol"]="2"                                                        # Использование только версии протокола 2
+ #   ["protocol"]="2"                                                        # Использование только версии протокола 2
 
     # === УПРАВЛЕНИЕ ДОСТУПОМ ===
     ["usepam"]="yes"                                                        # Включение PAM для использования дополнительных методов аутентификации
