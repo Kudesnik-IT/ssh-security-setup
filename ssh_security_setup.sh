@@ -199,7 +199,7 @@ if [[ "${TEST_ONLY}" == "false" ]]; then
 # === ПАРАМЕТРЫ БЕЗОПАСНОСТИ СОЕДИНЕНИЯ ===
 
 HostKey /etc/ssh/ssh_host_ed25519_key                             # Использование только Ed25519 для HostKey
-PubkeyAcceptedKeyTypes=ssh-ed25519                                # Разрешение только Ed25519 для ключей пользователей
+PubkeyAcceptedAlgorithms=ssh-ed25519                              # Разрешение только Ed25519 для ключей пользователей
 HostKeyAlgorithms=ssh-ed25519                                     # Разрешение только Ed25519 для алгоритмов обмена ключами
 KexAlgorithms=curve25519-sha256                                   # Алгоритмы обмена ключами (рекомендуется curve25519-sha256)
 Ciphers=chacha20-poly1305@openssh.com,aes256-gcm@openssh.com      # Шифры для защиты данных (рекомендуется ChaCha20 и AES-GCM)
@@ -427,30 +427,30 @@ done
 declare -A EXPECTED_SETTINGS=(
     # === ПАРАМЕТРЫ БЕЗОПАСНОСТИ СОЕДИНЕНИЯ ===
     ["hostkey"]="/etc/ssh/ssh_host_ed25519_key"                             # Использование только Ed25519 для HostKey
-    ["pubkeyacceptedkeytypes"]="ssh-ed25519"                                # Разрешение только Ed25519 для ключей пользователей
+    ["pubkeyacceptedalgorithms"]="ssh-ed25519"                                # Разрешение только Ed25519 для ключей пользователей
     ["hostkeyalgorithms"]="ssh-ed25519"                                     # Разрешение только Ed25519 для алгоритмов обмена ключами
     ["kexalgorithms"]="curve25519-sha256"                                   # Алгоритмы обмена ключами (рекомендуется curve25519-sha256)
     ["ciphers"]="chacha20-poly1305@openssh.com,aes256-gcm@openssh.com"      # Шифры для защиты данных (рекомендуется ChaCha20 и AES-GCM)
     ["macs"]="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com"  # Методы аутентификации сообщений (рекомендуется HMAC-SHA2)
-    ["rekeylimit"]="1G:1h"                                                  # Перешифровка соединения каждые 1 ГБ данных или 1 час
+    ["rekeylimit"]="1073741824 3600"                                                  # Перешифровка соединения каждые 1 ГБ (1073741824 байт) данных или 1 час (3600сек)
     ["hostbasedauthentication"]="no"                                        # Отключение хост-базированной аутентификации
 
     # === НАСТРОЙКИ ПОРТА и СЕТЕВОГО ИНТЕРФЕЙСА ===
-    ["port"]="50000"                                                        # Использование нестандартного порта для снижения автоматических атак
+    ["port"]="${SSH_PORT}"                                                       # Использование нестандартного порта для снижения автоматических атак
     ["addressfamily"]="inet"                                                # Разрешение только IPv4 (если IPv6 не требуется)
-    ["listenaddress"]="192.168.1.102"                                       # Ограничение прослушивания только определенного IP-адреса
+    ["listenaddress"]="${SSH_IP}:${SSH_PORT}"                               # Ограничение прослушивания только определенного IP-адреса
     ["protocol"]="2"                                                        # Использование только версии протокола 2
 
     # === УПРАВЛЕНИЕ ДОСТУПОМ ===
     ["usepam"]="yes"                                                        # Включение PAM для использования дополнительных методов аутентификации
     ["permitrootlogin"]="no"                                                # Запрет прямого входа под root
     ["passwordauthentication"]="no"                                         # Отключение парольной аутентификации
-    ["permitempty passwords"]="no"                                          # Запрет пустых паролей
+    ["permitemptypasswords"]="no"                                          # Запрет пустых паролей
     ["pubkeyauthentication"]="yes"                                          # Разрешение аутентификации по публичным ключам
     ["authenticationmethods"]="publickey"                                   # Требование использования только SSH-ключей
     ["authorizedkeysfile"]=".ssh/authorized_keys"                           # Путь к файлу с авторизованными ключами
-    ["challengeresponseauthentication"]="no"                                # Отключение challenge-response аутентификации
-    ["allowusers"]="user1"                                                  # Разрешение доступа только указанным пользователям
+#    ["challengeresponseauthentication"]="no"                                # Отключение challenge-response аутентификации
+    ["allowusers"]="${SSH_USER}"                                            # Разрешение доступа только указанным пользователям
     ["denyusers"]="ALL"                                                     # Явно запрещаем всем остальным пользователям (защита от ошибок)
     ["kbdinteractiveauthentication"]="no"                                   # Отключение клавиатурно-интерактивной аутентификации
     ["banner"]="/etc/issue.net"                                             # Отображение баннера при подключении
@@ -481,7 +481,7 @@ errors=()
 # Проверка каждого параметра
 for key in "${!EXPECTED_SETTINGS[@]}"; do
     expected_value="${EXPECTED_SETTINGS[$key]}"
-    if ! actual_value=$(sshd -T | grep -w "^$key" | awk '{print $2}' | xargs); then
+    if ! actual_value=$(sshd -T | grep -w "^$key" | cut -d' ' -f2- | xargs); then
         errors+=("✗ Параметр '$key' не имеет значения, ожидалось '$expected_value'.")
     else
         if [ "$actual_value" != "$expected_value" ]; then
