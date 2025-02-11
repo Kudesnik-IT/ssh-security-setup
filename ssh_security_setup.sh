@@ -7,7 +7,6 @@
 #   - Генерирует новые SSH-ключи (Ed25519) для сервера.
 #   - Устанавливает права доступа на ключи и конфигурационные файлы.
 #   - Настройка баннера для предупреждения пользователей.
-#   - Настройка ротации логов для мониторинга активности.
 #   - Перезапуск и тестирование на соответствие настройкам.
 #  _  __              _                        _   _              ___   _____ 
 # | |/ /  _   _    __| |   ___   ___   _ __   (_) | | __         |_ _| |_   _|
@@ -86,6 +85,7 @@ help() {
     -u, --username     пользователь
     -p, --port         порт
     -i, --ip           ip адрес
+    -t, --testonly     запустить только тесты
 
 EOF
   exit
@@ -161,7 +161,7 @@ EOF
 
 # === Проверка зависимостей ===
 log "Проверка зависимостей..."
-for cmd in ip ss ssh-keygen sshd systemctl logrotate; do
+for cmd in ip ss ssh-keygen sshd systemctl; do
     if ! command -v "$cmd" &>/dev/null; then
         log "Команда $cmd не найдена. Установите её перед выполнением скрипта."
         exit 1
@@ -295,21 +295,7 @@ EOF
     echo "WARNING: Unauthorized access, your actions will be monitored." > /etc/issue.net
     log "Баннер создан и настроен."
 
-    # === 6. Настройка ротации логов ===
-    log "Настройка ротации логов..."
-    cat <<EOF > /etc/logrotate.d/sshd
-/var/log/auth.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    missingok
-    notifempty
-}
-EOF
-    log "Настроена ротация логов для SSH."
-
-    # === 7. Проверка конфигурации ===
+    # === 6. Проверка конфигурации ===
     log "Проверка конфигурации SSH..."
     sshd -t
     if [ $? -ne 0 ]; then
@@ -318,7 +304,7 @@ EOF
     fi
     log "Конфигурация SSH-сервера корректна."
 
-    # === 8. Перезапуск SSH-сервера ===
+    # === 7. Перезапуск SSH-сервера ===
     log "Перезапуск ssh сервера..."
     systemctl restart sshd
     log "SSH-сервер перезапущен."
@@ -501,75 +487,6 @@ else
         echo "  $error"
     done
 fi
-
-# Тест: Проверка ротации логов
-# Массив для хранения ошибок
-errors=()
-# === 1. Проверка конфигурации logrotate ===
-LOGROTATE_CONFIG="/etc/logrotate.d/sshd"
-REQUIRED_LOGROTATE_SETTINGS=(
-    "/var/log/auth.log"
-    "daily"
-    "rotate 7"
-    "compress"
-    "delaycompress"
-    "missingok"
-    "notifempty"
-)
-if [ -f "$LOGROTATE_CONFIG" ]; then
-    for setting in "${REQUIRED_LOGROTATE_SETTINGS[@]}"; do
-        if ! grep -qE "$setting" "$LOGROTATE_CONFIG"; then
-            errors+=("✗ Настройка '$setting' отсутствует в конфигурации ротации логов.")
-        fi
-    done
-else
-    errors+=("✗ Файл конфигурации ротации логов ($LOGROTATE_CONFIG) не найден.")
-fi
-# === 2. Симуляция ротации логов ===
-touch /var/log/auth.log
-logrotate --force /etc/logrotate.d/sshd
-
-if [ ! -f "/var/log/auth.log.1.gz" ]; then
-    errors+=("✗ Ротация логов не работает. Проверьте настройки logrotate.")
-fi
-# === 3. Проверка количества создаваемых логов ===
-ITERATIONS=8
-EXPECTED_LOG_COUNT=7  # rotate 7 в конфигурации logrotate
-for ((i = 1; i <= ITERATIONS; i++)); do
-    logrotate --force /etc/logrotate.d/sshd
-done
-LOG_COUNT=$(ls /var/log/auth.log.* 2>/dev/null | wc -l)
-if [ "$LOG_COUNT" -ne "$EXPECTED_LOG_COUNT" ]; then
-    errors+=("✗ Ротация логов работает некорректно: создано $LOG_COUNT файлов (ожидалось $EXPECTED_LOG_COUNT).")
-fi
-# === 4. Проверка сжатия логов ===
-if ! ls /var/log/auth.log.*.gz >/dev/null 2>&1; then
-    errors+=("✗ Логи не сжимаются. Проверьте настройку 'compress'.")
-fi
-# === 5. Проверка работы cron для logrotate ===
-CRON_JOB=$(grep -r "logrotate" /etc/cron.* || true)
-if [ -z "$CRON_JOB" ]; then
-    errors+=("✗ Cron для logrotate не настроен. Добавьте задачу в /etc/cron.daily/logrotate.")
-fi
-# === 6. Проверка прав доступа к логам ===
-if [ "$(stat -c %a /var/log/auth.log)" != "640" ]; then
-    errors+=("✗ Некорректные права доступа к auth.log. Требуется 640.")
-fi
-# === 7. Проверка нового файла логов ===
-if [ ! -f "/var/log/auth.log" ] || [ ! -w "/var/log/auth.log" ]; then
-    errors+=("✗ Новый файл логов не создан или недоступен для записи.")
-fi
-# === Вывод результатов ===
-if [ ${#errors[@]} -eq 0 ]; then
-    test_result "ok" "✓ Все тесты ротации логов пройдены успешно."
-else
-    test_result "fail" "✗ Обнаружены ошибки в ротации логов:"
-    for error in "${errors[@]}"; do
-        echo "  $error"
-    done
-fi
-# === Очистка после тестов ===
-rm -f /var/log/auth.log*
 
 log "Тесты завершены."
 
