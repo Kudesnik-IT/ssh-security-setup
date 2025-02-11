@@ -272,7 +272,7 @@ EOF
 
     # === 3. Создание нового ключа ssh_host_ed25519_key ===
     log "Создание нового ключа ssh_host_ed25519_key..."
-    ssh-keygen -t ed25519 -N "" -f "${KEY_PATH}/ssh_host_ed25519_key"
+    RES=$(ssh-keygen -t ed25519 -N "" -f "${KEY_PATH}/ssh_host_ed25519_key")
     if [ $? -ne 0 ]; then
         log "Ошибка при создании ключей."
         exit 1
