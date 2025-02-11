@@ -267,7 +267,7 @@ EOF
 
     # === 3. Создание нового ключа ssh_host_ed25519_key ===
     log "Создание нового ключа ssh_host_ed25519_key..."
-    ssh-keygen -t ed25519 -f "${KEY_PATH}/ssh_host_ed25519_key" -N "" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -N "" -f "${KEY_PATH}/ssh_host_ed25519_key" >/dev/null 2>&1
     log "Создан новый ключ ssh_host_ed25519_key."
 
     # === 4. Проверка и установка прав на все необходимые файлы ===
@@ -347,8 +347,8 @@ fi
 EXPECTED_ADDRESS="${CONFIG_LISTEN_ADDRESS}:${SSH_PORT}"
 while read -r OPEN_PORT_LINE; do
     # Разделяем адрес и порт
-    OPEN_ADDRESS=$(echo "$OPEN_PORT_LINE" | cut -d':' -f1)
-    OPEN_PORT=$(echo "$OPEN_PORT_LINE" | cut -d':' -f2)
+    OPEN_PORT=$(echo "$OPEN_PORT_LINE" | awk -F':' '{print $NF}')
+    OPEN_ADDRESS="${OPEN_PORT_LINE%:*}"
 
     # Проверяем, что порт соответствует Port из конфигурации
     if [ "$OPEN_PORT" != "$SSH_PORT" ]; then
@@ -482,9 +482,9 @@ for key in "${!EXPECTED_SETTINGS[@]}"; do
 done
 # Вывод результатов
 if [ ${#errors[@]} -eq 0 ]; then
-    test_result "ok" "✓ Все параметры конфигурации SSH корректны."
+    test_result "ok" "Все параметры конфигурации SSH корректны."
 else
-    test_result "fail" "✗ Обнаружены ошибки в конфигурации SSH:"
+    test_result "fail" "Обнаружены ошибки в конфигурации SSH:"
     for error in "${errors[@]}"; do
         echo "  $error"
     done
