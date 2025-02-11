@@ -50,9 +50,10 @@ set -o pipefail           # handle errors in pipelines
 # --- DEFINE VARIABLES ---
 ##########################
 
-SSH_USER="user1"                     # Пользователь для доступа по SSH   
+SSH_USER="user1"
 SSH_PORT="22"
-SSH_IP="0.0.0.0"               
+SSH_IP="0.0.0.0"     
+TEST_ONLY=false          
 
 ###################
 # --- FUNCTIONS ---
@@ -120,6 +121,10 @@ while [[ "$#" -gt 0 ]]; do
             SSH_IP="$2"
             shift 2
             ;;
+        -t|--testonly)
+            TEST_ONLY="all"
+            shift
+            ;;
         -h|--help)
             help
             ;;
@@ -177,17 +182,20 @@ if [ "$CONFIG_LISTEN_ADDRESS" != "0.0.0.0" ]; then
     fi
 fi
 
-# === 1. Создание файла конфигурации sshd_config ===
-log "Создание файла конфигурации"
 
-# Бэкап существующего конфигурационного файла
-if [ -f "$SSHD_CONFIG" ]; then
-    cp "$SSHD_CONFIG" "$SSHD_CONFIG.backup"
-    log "Создан бэкап существующего конфигурационного файла: $SSHD_CONFIG.backup"
-fi
+if [[ "${TEST_ONLY}" == "all" ]]; then
 
-# Создание нового файла конфигурации
-cat > "$SSHD_CONFIG" <<EOF
+    # === 1. Создание файла конфигурации sshd_config ===
+    log "Создание файла конфигурации"
+
+    # Бэкап существующего конфигурационного файла
+    if [ -f "$SSHD_CONFIG" ]; then
+        cp "$SSHD_CONFIG" "$SSHD_CONFIG.backup"
+        log "Создан бэкап существующего конфигурационного файла: $SSHD_CONFIG.backup"
+    fi
+
+    # Создание нового файла конфигурации
+    cat > "$SSHD_CONFIG" <<EOF
 # === ПАРАМЕТРЫ БЕЗОПАСНОСТИ СОЕДИНЕНИЯ ===
 
 HostKey /etc/ssh/ssh_host_ed25519_key                             # Использование только Ed25519 для HostKey
@@ -250,46 +258,46 @@ IgnoreRhosts yes                                    # Игнорирование
 AllowTcpForwarding no                               # Запрет TCP-туннелирования для предотвращения использования сервер
 EOF
 
-log "Файл конфигурации $SSHD_CONFIG успешно создан."
+    log "Файл конфигурации $SSHD_CONFIG успешно создан."
 
-# === 2. Удаление всех старых ключей ===
-log "Удаление всех старых ключей..."
-rm -f "/etc/ssh/ssh_host_*" 2>/dev/null
-log "Все старые ключи удалены."
+    # === 2. Удаление всех старых ключей ===
+    log "Удаление всех старых ключей..."
+    rm -f "/etc/ssh/ssh_host_*" 2>/dev/null
+    log "Все старые ключи удалены."
 
-# === 3. Создание нового ключа ssh_host_ed25519_key ===
-log "Создание нового ключа ssh_host_ed25519_key..."
-ssh-keygen -t ed25519 -f "${KEY_PATH}/ssh_host_ed25519_key" -N "" >/dev/null 2>&1
-log "Создан новый ключ ssh_host_ed25519_key."
+    # === 3. Создание нового ключа ssh_host_ed25519_key ===
+    log "Создание нового ключа ssh_host_ed25519_key..."
+    ssh-keygen -t ed25519 -f "${KEY_PATH}/ssh_host_ed25519_key" -N "" >/dev/null 2>&1
+    log "Создан новый ключ ssh_host_ed25519_key."
 
-# === 4. Проверка и установка прав на все необходимые файлы ===
-log "Установка прав на ключи и конфигурацию"
-chown root:root "${KEY_PATH}/ssh_host_*"
-chmod 600 "${KEY_PATH}/ssh_host_*"
-chmod 644 "${KEY_PATH}/ssh_host_ed25519_key.pub"
-chown root:root /etc/ssh
-chmod 750 /etc/ssh
-chown root:root /etc/ssh/sshd_config
-chmod 600 /etc/ssh/sshd_config
-log "Права на файлы установлены"
+    # === 4. Проверка и установка прав на все необходимые файлы ===
+    log "Установка прав на ключи и конфигурацию"
+    chown root:root "${KEY_PATH}/ssh_host_*"
+    chmod 600 "${KEY_PATH}/ssh_host_*"
+    chmod 644 "${KEY_PATH}/ssh_host_ed25519_key.pub"
+    chown root:root /etc/ssh
+    chmod 750 /etc/ssh
+    chown root:root /etc/ssh/sshd_config
+    chmod 600 /etc/ssh/sshd_config
+    log "Права на файлы установлены"
 
-# === 5. Настройка баннера ===
-log "Настройка баннера..."
-for file in /etc/motd /etc/issue /etc/issue.net; do
-    if [ -f "$file" ]; then
-        chown root:root "$file"
-        chmod 644 "$file"
-        log "Права на файл $file установлены."
-    else
-        log "Файл $file не найден, пропускаем."
-    fi
-done
-echo "WARNING: Unauthorized access, your actions will be monitored." > /etc/issue.net
-log "Баннер создан и настроен."
+    # === 5. Настройка баннера ===
+    log "Настройка баннера..."
+    for file in /etc/motd /etc/issue /etc/issue.net; do
+        if [ -f "$file" ]; then
+            chown root:root "$file"
+            chmod 644 "$file"
+            log "Права на файл $file установлены."
+        else
+            log "Файл $file не найден, пропускаем."
+        fi
+    done
+    echo "WARNING: Unauthorized access, your actions will be monitored." > /etc/issue.net
+    log "Баннер создан и настроен."
 
-# === 6. Настройка ротации логов ===
-log "Настройка ротации логов..."
-cat <<EOF > /etc/logrotate.d/sshd
+    # === 6. Настройка ротации логов ===
+    log "Настройка ротации логов..."
+    cat <<EOF > /etc/logrotate.d/sshd
 /var/log/auth.log {
     daily
     rotate 7
@@ -299,43 +307,43 @@ cat <<EOF > /etc/logrotate.d/sshd
     notifempty
 }
 EOF
-log "Настроена ротация логов для SSH."
+    log "Настроена ротация логов для SSH."
 
-# === 7. Проверка конфигурации ===
-log "Проверка конфигурации SSH..."
-sshd -t
-if [ $? -ne 0 ]; then
-    log "Ошибка в конфигурации SSH-сервера. Проверьте файл $SSHD_CONFIG."
-    exit
-fi
-log "Конфигурация SSH-сервера корректна."
-
-# === 8. Перезапуск SSH-сервера ===
-log "Перезапуск ssh сервера..."
-systemctl restart sshd
-log "SSH-сервер перезапущен."
-
-
-# === Проверка готовности SSH-сервера ===
-log "Ожидание готовности SSH-сервера..."
-TIMEOUT=30  # Максимальное время ожидания (в секундах)
-SLEEP_INTERVAL=2  # Интервал между проверками (в секундах)
-ELAPSED_TIME=0
-
-while [ $ELAPSED_TIME -lt $TIMEOUT ]; do
-    if systemctl is-active --quiet sshd; then
-        log "SSH-сервер успешно запущен."
-        break
+    # === 7. Проверка конфигурации ===
+    log "Проверка конфигурации SSH..."
+    sshd -t
+    if [ $? -ne 0 ]; then
+        log "Ошибка в конфигурации SSH-сервера. Проверьте файл $SSHD_CONFIG."
+        exit
     fi
-    sleep $SLEEP_INTERVAL
-    ELAPSED_TIME=$((ELAPSED_TIME + SLEEP_INTERVAL))
-done
+    log "Конфигурация SSH-сервера корректна."
 
-if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
-    test_result "fail" "✗ SSH-сервер не запустился за отведенное время ($TIMEOUT секунд)."
-    exit 1
+    # === 8. Перезапуск SSH-сервера ===
+    log "Перезапуск ssh сервера..."
+    systemctl restart sshd
+    log "SSH-сервер перезапущен."
+
+
+    # === Проверка готовности SSH-сервера ===
+    log "Ожидание готовности SSH-сервера..."
+    TIMEOUT=30  # Максимальное время ожидания (в секундах)
+    SLEEP_INTERVAL=2  # Интервал между проверками (в секундах)
+    ELAPSED_TIME=0
+
+    while [ $ELAPSED_TIME -lt $TIMEOUT ]; do
+        if systemctl is-active --quiet sshd; then
+            log "SSH-сервер успешно запущен."
+            break
+        fi
+        sleep $SLEEP_INTERVAL
+        ELAPSED_TIME=$((ELAPSED_TIME + SLEEP_INTERVAL))
+    done
+
+    if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+        test_result "fail" "✗ SSH-сервер не запустился за отведенное время ($TIMEOUT секунд)."
+        exit 1
+    fi
 fi
-
 
 log "Выполнение тестов..."
 
