@@ -1,0 +1,61 @@
+
+# === ПАРАМЕТРЫ БЕЗОПАСНОСТИ СОЕДИНЕНИЯ ===
+
+HostKey /etc/ssh/ssh_host_ed25519_key                             # Использование только Ed25519 для HostKey
+PubkeyAcceptedKeyTypes=ssh-ed25519                                # Разрешение только Ed25519 для ключей пользователей
+HostKeyAlgorithms=ssh-ed25519                                     # Разрешение только Ed25519 для алгоритмов обмена ключами
+KexAlgorithms=curve25519-sha256                                   # Алгоритмы обмена ключами (рекомендуется curve25519-sha256)
+Ciphers=chacha20-poly1305@openssh.com,aes256-gcm@openssh.com      # Шифры для защиты данных (рекомендуется ChaCha20 и AES-GCM)
+MACs=hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com  # Методы аутентификации сообщений (рекомендуется HMAC-SHA2)
+RekeyLimit 1G 1h                                                  # Перешифровка соединения каждые 1 ГБ данных или 1 час
+HostbasedAuthentication no                                        # Отключение хост-базированной аутентификации
+
+
+# === НАСТРОЙКИ ПОРТА и СЕТЕВОГО ИНТЕРФЕЙСА ===
+
+Port 12345                                          # Использование нестандартного порта для снижения автоматических атак
+AddressFamily inet                                  # Разрешение только IPv4 (если IPv6 не требуется)
+ListenAddress 10.1.1.1                              # Ограничение прослушивания только определенного IP-адреса
+Protocol 2                                          # Использование только версии протокола 2
+
+
+# === УПРАВЛЕНИЕ ДОСТУПОМ === 
+
+UsePAM yes                                          # Включение PAM для использования дополнительных методов аутентификации
+PermitRootLogin no                                  # Запрет прямого входа под root
+PasswordAuthentication no                           # Отключение парольной аутентификации
+PermitEmptyPasswords no
+PubkeyAuthentication yes                            # Разрешение аутентификации по публичным ключам
+AuthenticationMethods publickey                     # Требование использования только SSH-ключей
+AuthorizedKeysFile .ssh/authorized_keys             # Путь к файлу с авторизованными ключами (chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh)
+ChallengeResponseAuthentication no                  # Отключение challenge-response аутентификации
+AllowUsers user1                                    # Разрешение доступа только указанным пользователям
+DenyUsers ALL                                       # Явно запрещаем всем остальным пользователям (защита от ошибок)
+KbdInteractiveAuthentication no                     # Отключение клавиатурно-интерактивной аутентификации
+Banner /etc/issue.net                               # Отображение баннера при подключении (chmod 644 /etc/issue.net && chown root:root /etc/issue.net)
+PermitUserEnvironment no                            # Запрет чтения файла ~/.ssh/environment для установки переменных окружения пользователем
+
+
+# === НАСТРОЙКИ ПРОИЗВОДИТЕЛЬНОСТИ ===
+
+MaxStartups 10:30:60                                # Защита от DDoS-атак: разрешает максимум 10 одновременных попыток входа
+MaxAuthTries 3                                      # Максимум 3 попытки аутентификации
+MaxSessions 5                                       # Ограничение максимального количества сессий на пользователя
+LoginGraceTime 15                                   # Время на ввод учетных данных ограничено 15 секундами
+ClientAliveInterval 60                              # Отправка keepalive пакетов каждые 60 секунд
+ClientAliveCountMax 3                               # Разрыв соединения после 3 пропущенных keepalive пакетов
+
+
+# === ЛОГИРОВАНИЕ и МОНИТОРИНГ ===
+
+LogLevel INFO                                       # Подробное журналирование для обнаружения подозрительной активности (VERBOSE или INFO)
+StrictModes yes                                     # Строгая проверка прав доступа к файлам пользователей
+
+# === ДОПОЛНИТЕЛЬНЫЕ ПАРАМЕТРЫ ===
+
+X11Forwarding no                                    # Отключение X11 forwarding для повышения безопасности
+PrintMotd no                                        # Отключение вывода MOTD (используйте /etc/motd вместо этого)
+AcceptEnv LANG LC_*                                 # Разрешение передачи переменных окружения
+Subsystem sftp internal-sftp                        # Использование внутренней реализации SFTP для большей безопасности
+IgnoreRhosts yes                                    # Игнорирование файлов .rhosts и ~/.shosts для предотвращения устаревших методов аутентификации
+AllowTcpForwarding no                               # Запрет TCP-туннелирования для предотвращения использования сервер
