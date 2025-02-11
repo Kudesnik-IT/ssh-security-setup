@@ -262,19 +262,28 @@ EOF
 
     # === 2. Удаление всех старых ключей ===
     log "Удаление всех старых ключей..."
-    rm -f "/etc/ssh/ssh_host_*" 2>/dev/null
+    RES=$(rm -f /etc/ssh/ssh_host_*)
+    if [ $? -ne 0 ]; then
+        log "Ошибка при удалении старых ключей."
+        echo "${RES}"
+        exit 1
+    fi
     log "Все старые ключи удалены."
 
     # === 3. Создание нового ключа ssh_host_ed25519_key ===
     log "Создание нового ключа ssh_host_ed25519_key..."
-    ssh-keygen -t ed25519 -N "" -f "${KEY_PATH}/ssh_host_ed25519_key" >/dev/null 2>&1
+    ssh-keygen -t ed25519 -N "" -f "${KEY_PATH}/ssh_host_ed25519_key"
+    if [ $? -ne 0 ]; then
+        log "Ошибка при создании ключей."
+        exit 1
+    fi
     log "Создан новый ключ ssh_host_ed25519_key."
 
     # === 4. Проверка и установка прав на все необходимые файлы ===
     log "Установка прав на ключи и конфигурацию"
-    chown root:root "${KEY_PATH}/ssh_host_*"
-    chmod 600 "${KEY_PATH}/ssh_host_*"
-    chmod 644 "${KEY_PATH}/ssh_host_ed25519_key.pub"
+    chown root:root ${KEY_PATH}/ssh_host_*
+    chmod 600 ${KEY_PATH}/ssh_host_*
+    chmod 644 ${KEY_PATH}/ssh_host_ed25519_key.pub
     chown root:root /etc/ssh
     chmod 750 /etc/ssh
     chown root:root /etc/ssh/sshd_config
@@ -371,7 +380,7 @@ done <<< "$OPEN_PORTS"
 if [ ${#errors[@]} -eq 0 ]; then
     test_result "ok" "✓ Тест портов: Сервис sshd слушает только один порт ($SSH_PORT) на адресе $CONFIG_LISTEN_ADDRESS."
 else
-    test_result "fail" "✗ Тест портов не пройден: Обнаружены ошибки в конфигурации открытых портов."
+    test_result "fail" "Тест портов не пройден: Обнаружены ошибки в конфигурации открытых портов."
     for error in "${errors[@]}"; do
         echo "$error"
     done
