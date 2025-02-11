@@ -52,7 +52,7 @@ set -o pipefail           # handle errors in pipelines
 SSH_USER="user1"
 SSH_PORT="22"
 SSH_IP="0.0.0.0"     
-TEST_ONLY=false          
+TEST_ONLY="false"          
 
 ###################
 # --- FUNCTIONS ---
@@ -183,7 +183,7 @@ if [ "$CONFIG_LISTEN_ADDRESS" != "0.0.0.0" ]; then
 fi
 
 
-if [[ "${TEST_ONLY}" == "all" ]]; then
+if [[ "${TEST_ONLY}" == "false" ]]; then
 
     # === 1. Создание файла конфигурации sshd_config ===
     log "Создание файла конфигурации"
@@ -337,7 +337,7 @@ log "Выполнение тестов..."
 # Массив для хранения ошибок
 errors=()
 # Получаем список всех портов, открытых сервисом sshd
-OPEN_PORTS=$(ss -tuln -p | grep "sshd" | grep "LISTEN" | awk '{print $4}')
+OPEN_PORTS=$(ss -tuln -p | grep "sshd" | grep "LISTEN" | awk '{print $5}')
 PORT_COUNT=$(echo "$OPEN_PORTS" | wc -l)
 # Проверяем, что открыт только один порт
 if [ "$PORT_COUNT" -ne 1 ]; then
@@ -472,10 +472,12 @@ errors=()
 # Проверка каждого параметра
 for key in "${!EXPECTED_SETTINGS[@]}"; do
     expected_value="${EXPECTED_SETTINGS[$key]}"
-    actual_value=$(sshd -T | grep -w "^$key" | awk '{print $2}' | xargs)
-    
-    if [ "$actual_value" != "$expected_value" ]; then
-        errors+=("✗ Параметр '$key' имеет значение '$actual_value', ожидалось '$expected_value'.")
+    if ! actual_value=$(sshd -T | grep -w "^$key" | awk '{print $2}' | xargs); then
+        errors+=("✗ Параметр '$key' не имеет значения, ожидалось '$expected_value'.")
+    else
+        if [ "$actual_value" != "$expected_value" ]; then
+            errors+=("✗ Параметр '$key' имеет значение '$actual_value', ожидалось '$expected_value'.")
+        fi
     fi
 done
 # Вывод результатов
